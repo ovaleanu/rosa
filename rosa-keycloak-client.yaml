@@ -1,0 +1,25 @@
+apiVersion: keycloak.org/v1alpha1
+kind: KeycloakClient
+metadata:
+  name: rosa-sso-client
+  labels:
+    client: rosa-sso-client
+  namespace: keycloak
+spec:
+  client:
+    redirectUris:
+      - "https://*"
+    webOrigins:
+      - "'*'"
+    clientId: rosa-sso-client
+    secret: client-secret
+    clientAuthenticatorType: client-secret
+    directAccessGrantsEnabled: true
+    enabled: true
+    fullScopeAllowed: true
+    nodeReRegistrationTimeout: -1
+    standardFlowEnabled: true
+    protocol: openid-connect
+  realmSelector:
+    matchLabels:
+      realm: rosa-realm

@@ -1,0 +1,16 @@
+apiVersion: keycloak.org/v1alpha1
+kind: KeycloakRealm
+metadata:
+  name: rosa-realm
+  namespace: keycloak
+  labels:
+    realm: rosa-realm
+spec:
+  instanceSelector:
+    matchLabels:
+      app: rosa-keycloak
+  realm:
+    displayName: ROSA Realm
+    enabled: true
+    id: rosa-realm
+    realm: rosa-realm

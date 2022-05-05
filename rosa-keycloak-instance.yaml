@@ -1,0 +1,11 @@
+apiVersion: keycloak.org/v1alpha1
+kind: Keycloak
+metadata:
+  name: rosa-keycloak
+  labels:
+    app: rosa-keycloak
+  namespace: keycloak
+spec:
+  externalAccess:
+    enabled: true
+  instances: 1
