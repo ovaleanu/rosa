@@ -49,5 +49,14 @@ aws ec2 create-route --route-table-id $EGRESS_VPC_RT --destination-cidr-block 0.
 aws ec2 create-route --route-table-id $EGRESS_VPC_RT --destination-cidr-block 10.1.0.0/16 --gateway-id $TGW > /dev/null
 aws ec2 create-route --route-table-id $ROSA_VPC_RT --destination-cidr-block 0.0.0.0/0 --gateway-id $TGW > /dev/null
 
+echo "Log into cloud.redhat.com and browse to https://cloud.redhat.com/openshift/token/rosa to get the rosa token."
+
+read rosaToken
+
+rosa login --token=${rosaToken}
+
+rosa verify quota
+
 rosa create account-roles --mode auto --yes
+
 rosa create cluster --cluster-name $ROSA_CLUSTER_NAME --region $AWS_REGION --private-link --machine-cidr=10.1.0.0/16 --sts --subnet-ids=$ROSA_PRIVATE_SUBNET --mode auto --yes
