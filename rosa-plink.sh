@@ -37,7 +37,8 @@ aws ec2 create-tags --resources $TGWA_VPC_EGRESS --tags Key=Name,Value=transit-g
 
 TGW_RT=$(aws ec2 describe-transit-gateways --transit-gateway-id $TGW | jq -r '.TransitGateways | .[] | .Options.AssociationDefaultRouteTableId')
 aws ec2 create-tags --resources $TGW_RT --tags Key=Name,Value=transit-gw-rt
-aws ec2 create-transit-gateway-route --destination-cidr-block 0.0.0.0/0 --transit-gateway-route-table-id $TGW_RT --transit-gateway-attachment-id $TGWA_VPC_EGRESS > /dev/null
+sleep 120
+# aws ec2 create-transit-gateway-route --destination-cidr-block 0.0.0.0/0 --transit-gateway-route-table-id $TGW_RT --transit-gateway-attachment-id $TGWA_VPC_EGRESS > /dev/null
 ROSA_VPC_RT=$(aws ec2 describe-route-tables --filters 'Name=vpc-id,Values='$VPC_ROSA'' --query 'RouteTables[].Associations[].RouteTableId' | jq '.[]' | tr -d '"')
 aws ec2 create-tags --resources $ROSA_VPC_RT --tags Key=Name,Value=rosa_rt 
 EGRESS_VPC_RT=$(aws ec2 describe-route-tables --filters 'Name=vpc-id,Values='$VPC_EGRESS'' --query 'RouteTables[].Associations[].RouteTableId' | jq '.[]' | tr -d '"')
