@@ -49,14 +49,27 @@ aws ec2 create-route --route-table-id $EGRESS_VPC_RT --destination-cidr-block 0.
 aws ec2 create-route --route-table-id $EGRESS_VPC_RT --destination-cidr-block 10.1.0.0/16 --gateway-id $TGW > /dev/null
 aws ec2 create-route --route-table-id $ROSA_VPC_RT --destination-cidr-block 0.0.0.0/0 --gateway-id $TGW > /dev/null
 
-echo "Log into cloud.redhat.com and browse to https://cloud.redhat.com/openshift/token/rosa to get the rosa token."
-
-read rosaToken
-
-rosa login --token=${rosaToken}
-
-rosa verify quota
 
 rosa create account-roles --mode auto --yes
-
 rosa create cluster --cluster-name $ROSA_CLUSTER_NAME --region $AWS_REGION --private-link --machine-cidr=10.1.0.0/16 --sts --subnet-ids=$ROSA_PRIVATE_SUBNET --mode auto --yes
+
+DNS_DOMAIN=$(rosa describe cluster --cluster $ROSA_CLUSTER_NAME -ojson | jq -r .dns.base_domain)
+R53HZ_ID=$(aws route53 list-hosted-zones-by-name | jq --arg name "$ROSA_CLUSTER_NAME.$DNS_DOMAIN." -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id')
+aws route53 associate-vpc-with-hosted-zone --hosted-zone-id $R53HZ_ID --vpc VPCRegion=$AWS_REGION,VPCId=$VPC_EGRESS
+
+# Create an instace in EGRESS_PUBLIC_SUBNET with inbound SSH traffic
+# aws ec2 run-instances --image-id <ami-id> --count 1 --instance-type t2.micro --key-name <key> --subnet-id $EGRESS_PUBLIC_SUBNET --associate-public-ip-address
+
+# Update your /etc/hosts to point openshift domains
+
+# 127.0.0.1 api.$ROSA_CLUSTER_NAME.$DNS_DOMAIN
+# 127.0.0.1 console-openshift-console.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN
+# 127.0.0.1 oauth-openshift.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN
+
+# ssh to the instance, tunnelling the traffic for your browser
+
+# sudo ssh -i <key>.pem \
+#   -L 6443:api.$ROSA_CLUSTER_NAME.$DNS_DOMAIN:6443 \
+#   -L 443:console-openshift-console.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN:443 \
+#   -L 80:console-openshift-console.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN:80 \
+#    ec2-user@$<public-ip-jumphost>
