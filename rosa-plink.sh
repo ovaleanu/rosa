@@ -1,5 +1,8 @@
 #!/bin/bash
 
+### NOTE: THIS SCRIPT IS CREATED FOR TESTING PURPOSES. USE IT ON YOUR OWN RISK.
+
+
 export ROSA_CLUSTER_NAME=plink-rosa AWS_REGION=eu-west-2
 
 VPC_ROSA=$(aws ec2 create-vpc --cidr-block 10.1.0.0/16 | jq -r .Vpc.VpcId)
