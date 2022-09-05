@@ -5,6 +5,9 @@
 
 export ROSA_CLUSTER_NAME=plink-rosa AWS_REGION=eu-west-2
 
+
+#### Create AWS Infra ####
+
 VPC_ROSA=$(aws ec2 create-vpc --cidr-block 10.1.0.0/16 | jq -r .Vpc.VpcId)
 aws ec2 create-tags --resources $VPC_ROSA --tags Key=Name,Value=rosa_vpc
 
@@ -28,7 +31,6 @@ aws ec2 attach-internet-gateway --vpc-id $VPC_EGRESS --internet-gateway-id $IGW
 EIP=$(aws ec2 allocate-address --domain vpc | jq -r .AllocationId)
 NATGW=$(aws ec2 create-nat-gateway --subnet-id $EGRESS_PUBLIC_SUBNET --allocation-id $EIP | jq -r .NatGateway.NatGatewayId)
 aws ec2 create-tags --resources $EIP --resources $NATGW --tags Key=Name,Value=egress_nat_public
-
 
 TGW=$(aws ec2 create-transit-gateway | jq -r .TransitGateway.TransitGatewayId)
 aws ec2 create-tags --resources $TGW --tags Key=Name,Value=rosa-transit-gateway
@@ -54,26 +56,38 @@ aws ec2 create-route --route-table-id $EGRESS_VPC_RT --destination-cidr-block 10
 aws ec2 create-route --route-table-id $ROSA_VPC_RT --destination-cidr-block 0.0.0.0/0 --gateway-id $TGW > /dev/null
 
 
+
+#### Create ROSA PrivateLink cluster ####
+
 rosa create account-roles --mode auto --yes
 rosa create cluster --cluster-name $ROSA_CLUSTER_NAME --region $AWS_REGION --private-link --machine-cidr=10.1.0.0/16 --sts --subnet-ids=$ROSA_PRIVATE_SUBNET --mode auto --yes
+
+
+
+#### Associate Egress VPC immediate the ROSA domain is created ####
 
 DNS_DOMAIN=$(rosa describe cluster --cluster $ROSA_CLUSTER_NAME -ojson | jq -r .dns.base_domain)
 R53HZ_ID=$(aws route53 list-hosted-zones-by-name | jq --arg name "$ROSA_CLUSTER_NAME.$DNS_DOMAIN." -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id')
 aws route53 associate-vpc-with-hosted-zone --hosted-zone-id $R53HZ_ID --vpc VPCRegion=$AWS_REGION,VPCId=$VPC_EGRESS
 
+
+
+#### Connect to the cluster from your local machine ####
+
 # Create an instace in EGRESS_PUBLIC_SUBNET with inbound SSH traffic
-# aws ec2 run-instances --image-id <ami-id> --count 1 --instance-type t2.micro --key-name <key> --subnet-id $EGRESS_PUBLIC_SUBNET --associate-public-ip-address
+aws ec2 create-key-pair --key-name <key> --key-type rsa --key-format pem --query "KeyMaterial" --output text >  <key>.pem
+chmod 400 <key>.pem
+aws ec2 run-instances --image-id <ami-id> --count 1 --instance-type t2.micro --key-name <key> --subnet-id $EGRESS_PUBLIC_SUBNET --associate-public-ip-address
 
 # Update your /etc/hosts to point openshift domains
-
-# 127.0.0.1 api.$ROSA_CLUSTER_NAME.$DNS_DOMAIN
-# 127.0.0.1 console-openshift-console.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN
-# 127.0.0.1 oauth-openshift.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN
+127.0.0.1 api.$ROSA_CLUSTER_NAME.$DNS_DOMAIN
+127.0.0.1 console-openshift-console.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN
+127.0.0.1 oauth-openshift.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN
 
 # ssh to the instance, tunnelling the traffic for your browser
 
-# sudo ssh -i <key>.pem \
-#   -L 6443:api.$ROSA_CLUSTER_NAME.$DNS_DOMAIN:6443 \
-#   -L 443:console-openshift-console.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN:443 \
-#   -L 80:console-openshift-console.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN:80 \
-#    ec2-user@$<public-ip-jumphost>
+ sudo ssh -i <key>.pem \
+   -L 6443:api.$ROSA_CLUSTER_NAME.$DNS_DOMAIN:6443 \
+   -L 443:console-openshift-console.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN:443 \
+   -L 80:console-openshift-console.apps.$ROSA_CLUSTER_NAME.$DNS_DOMAIN:80 \
+    ec2-user@$<public-ip-jumphost>
